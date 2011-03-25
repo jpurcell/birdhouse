@@ -1,0 +1,65 @@
+==============
+BirdHouse v0.1
+==============
+
+Installation & Implementation
+=============================
+
+1. Get Dependencies
+
+Go to: http://oauth.googlecode.com/svn/code/javascript/
+
+    a. oauth.js
+    b. sha1.js
+
+2. Include BirdHouse
+
+Wherever you want the authentication to happen,
+
+    Ti.include('birdhouse.js');
+
+Once BirdHouse is included it will automatically try and authenticate following the steps below under "How it Works". Basically all the script does at this point is get the access token, it does not send API calls. See the "To Do" list for where I want to take this in the future.
+
+How it Works
+============
+
+1. Get the Request Token
+
+    a. Set the message paramters
+    b. Set the url to send the XHR request to
+    c. Send the XHR request
+    d. Store the request token and token secret in cfg
+
+2. Get the Request Verifier
+
+    a. Open up a webview with the request token
+    b. When webview has redirected to the Twitter app's callback,
+       grab the request verifier from the URL
+    c. Store the verifier in cfg
+    d. Close the webview
+
+3. Get the Access Token
+
+    a. Set the message paramters
+    b. Set the url to send the XHR request to
+    c. Send the XHR request
+    d. Store the request token and token secret in cfg
+
+Debugging
+=========
+
+I have left in a ton of debug outputs to help developers navigate through what's happning.
+
+To Do
+=====
+
+1. Get API calls working
+2. Package code into a class
+3. Add as much customization as possible
+4. Add practical functions to the class such as "get_tweets"
+5. Better documentation and code comments
+
+Known Issues
+============
+
+- the timestamp is set to something like "1.301080763E9" rather than a real timestamp
