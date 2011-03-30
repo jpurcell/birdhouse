@@ -1,5 +1,5 @@
 ==============
-BirdHouse v0.1
+BirdHouse v0.2
 ==============
 
 Installation & Implementation
@@ -12,16 +12,39 @@ Go to: http://oauth.googlecode.com/svn/code/javascript/
     a. oauth.js
     b. sha1.js
 
-2. Include BirdHouse
+2. Include and Initialize BirdHouse Class
 
-Wherever you want the authentication to happen,
+Ti.include('birdhouse.js');
 
-    Ti.include('birdhouse.js');
+var BH = new BirdHouse({
+    consumer_key: "yourappsconsumerkey",
+    consumer_secret: "yourappsconsumersecretwhichislonger",
+    callback_url: "http://yourappsEXACTcallbackurl.com"
+});
 
-Once BirdHouse is included it will automatically try and authenticate following the steps below under "How it Works". Basically all the script does at this point is get the access token, it does not send API calls. See the "To Do" list for where I want to take this in the future.
+3. Authorize or Make an API Call
 
-How it Works
-============
+At this point you can call six different functions:
+
+    - authorize() - this initiates the authorization sequence, storing credentials in the app's directory in a file called 'twitter.config', returns void
+    - deauthorize() - deletes the 'twitter.config' so the app no longer has the access tokens
+    - authorized() - returns bool whether or not the user is authorized
+    - get_tweets() - returns the last 20 tweets as an object (not as a string)
+    - tweet(text) - sends a tweet with the given text and returns the response from twitter, which will be the tweet itself, as an object (not as a string)
+    - api(url, method, params) - sends an api call to the given url by the given method with the given parameters which should be in url form, i.e. "count=20&since_id=13523859", and then returns the evaluated response; the responses are evaluated by:
+
+        return eval('('+XHR.responseText+')');
+
+With any call, if the user is not authorized it will initiate the authorization process, thus, there is no need to initiated the authorization process before hand unless, for some reason, you wanted to get it out of the way. So, for example, to get the latest tweets,
+
+    var tweets = BH.get_tweets();
+
+How the Authorization Works
+===========================
+
+This script does not use the OOB (Out-Of-Band) method, the one where it gets the pin. It actually does something pretty slick. After getting the request tokens, it opens a WebView that sends the user to the authorization page on Twitter's site, and listens for when the page has redirected the the callback_url. Note that this means you have to specify a callback url, that's the downfall. This can be eliminated with a more complex regular expression, but I simply have not done so yet.
+
+Once the page is redirected to the callback url it extracts the oauth_verifier variable from the url and stores it. Then, that token, combined with the request token, is exchanged for access tokens which are then stored and can be re-used over and over. So, the general process looks like:
 
 1. Get the Request Token
 
@@ -48,18 +71,31 @@ How it Works
 Debugging
 =========
 
-I have left in a ton of debug outputs to help developers navigate through what's happning.
+I have left in a ton of debug outputs to help developers navigate through what's happning. Please report on GitHub any issues or suggestions!
 
 To Do
 =====
 
-1. Get API calls working
-2. Package code into a class
+1. Make a cleaned up, production version
+2. More testing, esp. with iPhone
 3. Add as much customization as possible
-4. Add practical functions to the class such as "get_tweets"
-5. Better documentation and code comments
+4. Better documentation and code comments
 
 Known Issues
 ============
 
-- the timestamp is set to something like "1.301080763E9" rather than a real timestamp
+There are no known issues at this time.
+
+Credits
+=======
+
+I must give credit to:
+
+    - Netflix for the oauth.js, 
+    - Paul Johnston and crew for sha1.js,
+    - The oauth developers who made the examples here:
+        http://oauth.googlecode.com/svn/code/javascript/
+    - David Riccitelli for his script that is awesome, but doesn't work on Android,
+        http://code.google.com/p/oauth-adapter/
+    - Mike, my colleague at iEntry who initiated the BirdHouse project in PHP
+
