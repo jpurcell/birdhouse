@@ -6,6 +6,7 @@ Installation & Implementation
 =============================
 
 1. Get Dependencies
+-------------------
 
 Go to: http://oauth.googlecode.com/svn/code/javascript/
 
@@ -13,6 +14,7 @@ Go to: http://oauth.googlecode.com/svn/code/javascript/
     b. sha1.js
 
 2. Include and Initialize BirdHouse Class
+-----------------------------------------
 
 Ti.include('birdhouse.js');
 
@@ -23,6 +25,7 @@ var BH = new BirdHouse({
 });
 
 3. Authorize or Make an API Call
+--------------------------------
 
 At this point you can call six different functions:
 
@@ -30,7 +33,7 @@ At this point you can call six different functions:
     - deauthorize() - deletes the 'twitter.config' so the app no longer has the access tokens
     - authorized() - returns bool whether or not the user is authorized
     - get_tweets() - returns the last 20 tweets as an object (not as a string)
-    - tweet(text) - sends a tweet with the given text and returns the response from twitter, which will be the tweet itself, as an object (not as a string)
+    - tweet(text) - opens a tweet dialog box with the given text, sends the tweet upon hitting the "tweet" button, and returns the response from twitter, which will be the tweet itself, as an object (not as a string)
     - api(url, method, params) - sends an api call to the given url by the given method with the given parameters which should be in url form, i.e. "count=20&since_id=13523859", and then returns the evaluated response; the responses are evaluated by:
 
         return eval('('+XHR.responseText+')');
@@ -42,9 +45,11 @@ With any call, if the user is not authorized it will initiate the authorization 
 How the Authorization Works
 ===========================
 
-This script does not use the OOB (Out-Of-Band) method, the one where it gets the pin. It actually does something pretty slick. After getting the request tokens, it opens a WebView that sends the user to the authorization page on Twitter's site, and listens for when the page has redirected the the callback_url. Note that this means you have to specify a callback url, that's the downfall. This can be eliminated with a more complex regular expression, but I simply have not done so yet.
+This script does not use the OOB (Out-Of-Band) method, the one where it gets the pin. It actually does something pretty slick. After getting the request tokens, it opens a WebView that sends the user to the authorization page on Twitter's site, and listens for when the page has redirected to a page with the 'oauth_verifier' in the url, which the page will be the app's callback url (or the callback url override if specified).
 
-Once the page is redirected to the callback url it extracts the oauth_verifier variable from the url and stores it. Then, that token, combined with the request token, is exchanged for access tokens which are then stored and can be re-used over and over. So, the general process looks like:
+As a quick note here, if the app's callback url immediately redirects to another page, the listener won't pick up that the url has changed until it finally hits the resultant page, and the 'oauth_verifier' token will be lost. So make sure whatever page the callback goes to does not have redirects set.
+
+So, once the redirected to the callback url it extracts the oauth_verifier variable from the url and stores it. Then, that token, combined with the request token, is exchanged for access tokens which are then stored and can be re-used over and over. Finally, if we are authorized and a callback function is set then call it. So, the general process looks like:
 
 1. Get the Request Token
 
@@ -68,18 +73,22 @@ Once the page is redirected to the callback url it extracts the oauth_verifier v
     c. Send the XHR request
     d. Store the request token and token secret in cfg
 
+4. Callback
+
+    If a callback function is set, call it if we are now authorized.
+
 Debugging
 =========
 
-I have left in a ton of debug outputs to help developers navigate through what's happning. Please report on GitHub any issues or suggestions!
+Check out the "debug" branch for a version of BirdHouse that has a ton of debug outputs so you can see better what is going on. Please report on GitHub any issues or suggestions!
 
 To Do
 =====
 
-1. Make a cleaned up, production version
-2. More testing, esp. with iPhone
-3. Add as much customization as possible
-4. Better documentation and code comments
+1. More testing, esp. with iPhone
+2. Add as much customization as possible
+3. Better documentation and code comments
+4. Make a test app.js
 
 Known Issues
 ============
@@ -89,7 +98,7 @@ There are no known issues at this time.
 Credits
 =======
 
-I must give credit to:
+This code came from a lot of debugging, implementing some of my own ideas, and I must give credit to the people I got a lot of the code from:
 
     - Netflix for the oauth.js, 
     - Paul Johnston and crew for sha1.js,
@@ -97,5 +106,7 @@ I must give credit to:
         http://oauth.googlecode.com/svn/code/javascript/
     - David Riccitelli for his script that is awesome, but doesn't work on Android,
         http://code.google.com/p/oauth-adapter/
-    - Mike, my colleague at iEntry who initiated the BirdHouse project in PHP
+    - Ketan Majmudar for modifying the oauth-adapter for Android,
+        https://github.com/stereoket/oauth-adapter
+    - Mike, my colleague at iEntry who initiated the BirdHouse project in PHP.
 
