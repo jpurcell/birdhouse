@@ -5,7 +5,14 @@ BirdHouse v0.3
 Installation & Implementation
 =============================
 
-1. Get Dependencies
+1. Twitter Application Settings
+-------------------------------
+
+First of all, make sure that you have registered an application with Twitter at http://dev.twitter.com and that the application's type is "Browser" (not "Client"). Also, you will need to set a callback url that has no redirects on that page--if the url redirects the OAuth sequence will not work.
+
+Also, if you would like tweeps who use your application to be able to update their status (i.e. send tweets) then be sure to set "Default access type" to "Read & Write" in the application settings.
+
+2. Get Dependencies
 -------------------
 
 Go to: http://oauth.googlecode.com/svn/code/javascript/
@@ -13,7 +20,7 @@ Go to: http://oauth.googlecode.com/svn/code/javascript/
     a. oauth.js
     b. sha1.js
 
-2. Include and Initialize BirdHouse Class
+3. Include and Initialize BirdHouse Class
 -----------------------------------------
 
 Ti.include('birdhouse.js');
@@ -24,7 +31,7 @@ var BH = new BirdHouse({
     callback_url: "http://yourappsEXACTcallbackurl.com"
 });
 
-3. Authorize or Make an API Call
+4. Authorize or Make an API Call
 --------------------------------
 
 At this point you can call six different functions:
