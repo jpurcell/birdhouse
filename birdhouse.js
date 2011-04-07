@@ -5,8 +5,8 @@
 // authenticating and sending API calls to Twitter.
 //
 // Author: Joseph D. Purcell, iEntry Inc.
-// Version: 0.3
-// Modified: March 2011
+// Version: 0.4
+// Modified: April 2011
 // --------------------------------------------------------
 
 // INCLUDES
@@ -41,7 +41,7 @@ function BirdHouse(params) {
 	var authorized = false;
 
 	// --------------------------------------------------------
-	// createMessage
+	// set_message
 	//
 	// Creates a message to send to the Twitter service with
 	// the given parameters, and adds the consumer key, 
@@ -57,16 +57,17 @@ function BirdHouse(params) {
 	//	message (Array) - the message parameters to send
 	//	  to Twitter
 	// --------------------------------------------------------
-	function createMessage(url, method, parameters) {
+	function set_message(url, method, parameters) {
 		var message = {
 			action: url,
 			method: (method) ? method : 'POST',
-			parameters: (parameters) ? OAuth.decodeForm(parameters) : []
+			parameters: (parameters!=null) ? OAuth.decodeForm(parameters) : []
 		};
 		message.parameters.push(['oauth_consumer_key', cfg.oauth_consumer_key]);
 		message.parameters.push(['oauth_signature_method', cfg.oauth_signature_method]);
 		message.parameters.push(["oauth_timestamp", OAuth.timestamp().toFixed(0)]);
 		message.parameters.push(["oauth_nonce", OAuth.nonce(42)]);
+		message.parameters.push(["oauth_version", "1.0"]);
 
 		return message;
 	}
@@ -83,34 +84,18 @@ function BirdHouse(params) {
 	// --------------------------------------------------------
 	function get_request_token(callback) {
 		var url = 'https://api.twitter.com/oauth/request_token';
-		if (cfg.callback_url=="") {
-			var message = createMessage(url, 'POST', "");
-		} else {
-			var message = createMessage(url, 'POST', "oauth_callback="+escape(cfg.callback_url));
-		}
 
-		OAuth.SignatureMethod.sign(message, accessor);
+		var params = (cfg.callback_url!="")?'oauth_callback='+escape(cfg.callback_url):'';
 
-		var finalUrl = OAuth.addToURL(message.action, message.parameters);
+		api(url,'POST',params,function(resp){
+			if (resp!=false) {
+				var responseParams = OAuth.getParameterMap(resp);
+				cfg.request_token = responseParams['oauth_token'];
+				cfg.request_token_secret = responseParams['oauth_token_secret'];
 
-		var XHR = Ti.Network.createHTTPClient();
-		
-		// on success, grab the request token
-		XHR.onload = function() {
-			var responseParams = OAuth.getParameterMap(XHR.responseText);
-			cfg.request_token = responseParams['oauth_token'];
-			cfg.request_token_secret = responseParams['oauth_token_secret'];
-
-			get_request_verifier(callback);
-		};
-
-		// on error, show message
-		XHR.onerror = function(e) {
-		}
-		
-		XHR.open('POST', finalUrl, false);
-		
-		XHR.send();
+				get_request_verifier(callback);
+			}
+		},false,true,false);
 	}
 
 	// --------------------------------------------------------
@@ -171,6 +156,7 @@ function BirdHouse(params) {
 				return true; // we are done here
 			}
 		});
+
 	}
 
 	// --------------------------------------------------------
@@ -185,43 +171,34 @@ function BirdHouse(params) {
 	//	  it will get executed after being authorized
 	// --------------------------------------------------------
 	function get_access_token(callback) {
-
 		var url = 'https://api.twitter.com/oauth/access_token';
 
-		var message = createMessage(url, 'POST', "oauth_token="+cfg.request_token+"&oauth_verifier="+cfg.request_verifier);
+		api(url,'POST','oauth_token='+cfg.request_token+'&oauth_verifier='+cfg.request_verifier,function(resp){
+			if (resp!=false) {
+				// SUCCESS
+				var responseParams = OAuth.getParameterMap(resp);
+				cfg.access_token = responseParams['oauth_token'];
+				cfg.access_token_secret = responseParams['oauth_token_secret'];
+				cfg.user_id = responseParams['user_id'];
+				cfg.screen_name = responseParams['screen_name'];
+				accessor.tokenSecret = cfg.access_token_secret;
 
-		OAuth.SignatureMethod.sign(message, accessor);
+				save_access_token();
 
-		var finalUrl = OAuth.addToURL(message.action, message.parameters);
+				authorized = load_access_token();
 
-		var XHR = Ti.Network.createHTTPClient();
-		
-		// on success, grab the request token
-		XHR.onload = function() {
-			var responseParams = OAuth.getParameterMap(XHR.responseText);
-			cfg.access_token = responseParams['oauth_token'];
-			cfg.access_token_secret = responseParams['oauth_token_secret'];
-			cfg.user_id = responseParams['user_id'];
-			cfg.screen_name = responseParams['screen_name'];
-			accessor.tokenSecret = cfg.access_token_secret;
-
-			save_access_token();
-
-			authorized = load_access_token();
-
-			// execute the callback function
-			if(authorized && typeof(callback)=='function'){
-				callback();
+				// execute the callback function
+				if(typeof(callback)=='function'){
+					callback(true);
+				}
+			} else {
+				// FAIL
+				// execute the callback function
+				if(typeof(callback)=='function'){
+					callback(false);
+				}
 			}
-		};
-
-		// on error, show message
-		XHR.onerror = function(e) {
-		}
-		
-		XHR.open('GET', finalUrl, false);
-		
-		XHR.send();
+		},false,true,false);
 	}
 
 	// --------------------------------------------------------
@@ -284,6 +261,7 @@ function BirdHouse(params) {
 			access_token_secret: cfg.access_token_secret
 		};
 		file.write(JSON.stringify(config));
+
 	}
 
 	// --------------------------------------------------------
@@ -297,12 +275,25 @@ function BirdHouse(params) {
 	//	method (String) - POST or GET
 	//	params (String) - the parameters to send in URL
 	//	  form
+	//	callback (Function) - after execution, call
+	//	  this function and send the XHR data to it
+	//	auth (Bool) - whether or not to force auth
+	//	setUrlParams (Bool) - set the params in the URL
+	//	setHeader (Bool) - set "Authorization" HTML header
+	//
+	// Notes:
+	//	- the setUrlParams and setHeader should only need
+	//	  to be set whenever getting request and access
+	//	  tokens; values 'true' and 'false' respectively
+	//
+	// Returns: false on failure and the responseText on
+	//   success.
 	// --------------------------------------------------------
-	function api(url, method, params) {
+	function api(url, method, params, callback, auth, setUrlParams, setHeader) {
 		// authorize user if not authorized, and call this in the callback
-		if (!authorized) {
+		if (!authorized && (typeof(auth)=='undefined' || auth==true)) {
 			authorize(function(){
-				api(url,method,params);
+				api(url,method,params,callback,auth);
 			});
 		}
 		// user is authorized so execute API
@@ -318,45 +309,171 @@ function BirdHouse(params) {
 			// VARIABLES
 			var initparams = params;
 
-			params = params + "&oauth_version=1.0&oauth_token="+cfg.access_token;
-			var message = createMessage(url, method, params);
+			if (params!=null) {
+				params = params + "&";
+			}
+
+			if (cfg.access_token!='') {
+				params = params + "oauth_token="+cfg.access_token;
+			}
+			var message = set_message(url, method, params);
+			//var message = createMessage(url, method, params);
+
 			OAuth.SignatureMethod.sign(message, accessor);
 
-			var finalUrl = OAuth.addToURL(message.action, initparams);
+			// if we are getting request tokens, all params have to be set in URL
+			if (typeof(setUrlParams)!='undefined' && setUrlParams==true) {
+				var finalUrl = OAuth.addToURL(message.action, message.parameters);
+			}
+			// for all other requests only custom params need set in the URL
+			else {
+				var finalUrl = OAuth.addToURL(message.action, initparams);
+			}
 
 			var XHR = Ti.Network.createHTTPClient();
 			
 			// on success, grab the request token
 			XHR.onload = function() {
-				return true;
+				// execute the callback function
+				if(typeof(callback)=='function'){
+					callback(XHR.responseText);
+				}
+
+				return XHR.responseText;
 			};
 
 			// on error, show message
 			XHR.onerror = function(e) {
-				// access token and token secret are wrong
-				if (e.error=="Unauthorized") {
-				} else {
-				}
-
 				return false;
 			}
 			
 			XHR.open(method, finalUrl, false);
 
-			var init = true;
-			var auth = "OAuth ";
-			for (var i=0; i<message.parameters.length; i++) {
-				if (init) {
-					init = false;
-				} else {
-					auth = auth + ",";
+			// if we are getting request tokens do not set the HTML header
+			if (typeof(setHeader)=='undefined' || setHeader==true) {
+				var init = true;
+				var auth = "OAuth ";
+				for (var i=0; i<message.parameters.length; i++) {
+					if (init) {
+						init = false;
+					} else {
+						auth = auth + ",";
+					}
+					auth = auth + message.parameters[i][0] + '="' + escape(message.parameters[i][1]) + '"';
 				}
-				auth = auth + message.parameters[i][0] + '="' + escape(message.parameters[i][1]) + '"';
-			}
 
-			XHR.setRequestHeader("Authorization", auth);
+				XHR.setRequestHeader("Authorization", auth);
+			}
 			
 			XHR.send();
+		}
+	}
+
+	// --------------------------------------------------------
+	// tweet
+	//
+	// Opens a tweet dialog box for the user to make a tweet
+	// to their page after checking if the user is authorized
+	// with the app. If the user is unauthorized, the
+	// authorization process will be initiated first.
+	//
+	// In Parameters:
+	//	text (String) - the default text for the text area
+	// --------------------------------------------------------
+	function tweet(text) {
+		// VALIDATE INPUT
+		if (typeof(text)=='undefined') {
+			text = '';
+		}
+		var obj = this;
+		obj.mytweet = text;
+		if (authorized === false) {
+			authorize(function(resp){
+				if (resp) {
+					obj.tweet(obj.mytweet);
+				}
+			});
+		} else {
+			var chars = (typeof(text)!='undefined' && text!=null)?text.length:0;
+			var winBG = Titanium.UI.createWindow({
+				backgroundColor:'#000',
+				opacity:0.60
+			});
+			var winTW = Titanium.UI.createWindow({
+				height:304,
+				top:10,
+				right:10,
+				left:10,
+				borderColor:'#224466',
+				borderWidth:3,
+				backgroundColor:'#559abb',
+				borderRadius:3.0
+			});
+			var tweet = Ti.UI.createTextArea({
+				value:text,
+				height:200,
+				top:14,
+				left:14,
+				right:14
+			});
+			var btnTW = Ti.UI.createButton({
+				title:'Tweet',
+				width:100,
+				top:222,
+				right:24
+			});
+			var btnCancel = Ti.UI.createButton({
+				title:'Cancel',
+				width:100,
+				top:222,
+				left:24
+			});
+			var charcount = Ti.UI.createLabel({
+				bottom:10,
+				right:14,
+				color:'#FFF',
+				text:parseInt((140-chars))+''
+			});
+			tweet.addEventListener('change',function() {
+				chars = (140-this.value.length);
+				if (chars<11) {
+					if (charcount.color!='#D40D12') {
+						charcount.color = '#D40D12';
+					}
+				} else if (chars<20) {
+					if (charcount.color!='#5C0002') {
+						charcount.color = '#5C0002';
+					}
+				} else {
+					if (charcount.color!='#FFF') {
+						charcount.color = '#FFF';
+					}
+				}
+				charcount.text = parseInt(chars)+'';
+			});
+			btnTW.addEventListener('click',function() {
+				var retval = send_tweet("status="+escape(tweet.value));
+				if (retval===false) {
+					var alertDialog = Titanium.UI.createAlertDialog({
+						title: 'System Message',
+						buttonNames: ['OK']
+					});
+					alertDialog.message = "Tweet failed to send!";
+				} else {
+					winBG.close();
+					winTW.close();
+				}
+			});
+			btnCancel.addEventListener('click',function() {
+				winBG.close();
+				winTW.close();
+			});
+			winTW.add(charcount);
+			winTW.add(tweet);
+			winTW.add(btnTW);
+			winTW.add(btnCancel);
+			winBG.open();
+			winTW.open();
 		}
 	}
 
@@ -370,7 +487,15 @@ function BirdHouse(params) {
 	//	  required parameters in url form
 	// --------------------------------------------------------
 	function send_tweet(params) {
-		return api("http://api.twitter.com/1/statuses/update.json","POST",params);
+		api('http://api.twitter.com/1/statuses/update.json','POST',params,function(resp){
+			if (resp!=false) {
+				// SUCCESS
+				return true;
+			} else {
+				// FAIL
+				return false;
+			}
+		});
 	}
 
 	// --------------------------------------------------------
@@ -429,104 +554,7 @@ function BirdHouse(params) {
 	this.api = api;
 	this.authorized = function() { return authorized; }
 	this.get_tweets = get_tweets;
-
-	// --------------------------------------------------------
-	// tweet
-	//
-	// Opens a tweet dialog box for the user to make a tweet
-	// to their page after checking if the user is authorized
-	// with the app. If the user is unauthorized, the
-	// authorization process will be initiated first.
-	//
-	// In Parameters:
-	//	text (String) - the default text for the text area
-	// --------------------------------------------------------
-	this.tweet = function(text) {
-		if (authorized === false) {
-			this.authorize();
-		} else {
-			var chars = text.length;
-			var winBG = Titanium.UI.createWindow({
-				backgroundColor:'#000',
-				opacity:0.60
-			});
-			var winTW = Titanium.UI.createWindow({
-				height:304,
-				top:10,
-				right:10,
-				left:10,
-				borderColor:'#224466',
-				borderWidth:3,
-				backgroundColor:'#559abb',
-				borderRadius:3.0
-			});
-			var tweet = Ti.UI.createTextArea({
-				value:text,
-				height:200,
-				top:14,
-				left:14,
-				right:14
-			});
-			var btnTW = Ti.UI.createButton({
-				title:'Tweet',
-				width:100,
-				top:222,
-				right:24
-			});
-			var btnCancel = Ti.UI.createButton({
-				title:'Cancel',
-				width:100,
-				top:222,
-				left:24
-			});
-			var charcount = Ti.UI.createLabel({
-				bottom:10,
-				right:14,
-				color:'#FFF',
-				text:parseInt((140-text.length))+''
-			});
-			tweet.addEventListener('change',function() {
-				chars = (140-this.value.length);
-				if (chars<11) {
-					if (charcount.color!='#D40D12') {
-						charcount.color = '#D40D12';
-					}
-				} else if (chars<20) {
-					if (charcount.color!='#5C0002') {
-						charcount.color = '#5C0002';
-					}
-				} else {
-					if (charcount.color!='#FFF') {
-						charcount.color = '#FFF';
-					}
-				}
-				charcount.text = parseInt(chars)+'';
-			});
-			btnTW.addEventListener('click',function() {
-				var retval = send_tweet("status="+escape(tweet.value));
-				if (retval===false) {
-					var alertDialog = Titanium.UI.createAlertDialog({
-						title: 'System Message',
-						buttonNames: ['OK']
-					});
-					alertDialog.message = "Tweet failed to send!";
-				} else {
-					winBG.close();
-					winTW.close();
-				}
-			});
-			btnCancel.addEventListener('click',function() {
-				winBG.close();
-				winTW.close();
-			});
-			winTW.add(charcount);
-			winTW.add(tweet);
-			winTW.add(btnTW);
-			winTW.add(btnCancel);
-			winBG.open();
-			winTW.open();
-		}
-	};
+	this.tweet = tweet;
 
 	// --------------------------------------------------------
 	// =================== INITIALIZE =========================

@@ -1,5 +1,5 @@
 ==============
-BirdHouse v0.3
+BirdHouse v0.4
 ==============
 
 Installation & Implementation
@@ -28,7 +28,7 @@ Ti.include('birdhouse.js');
 var BH = new BirdHouse({
     consumer_key: "yourappsconsumerkey",
     consumer_secret: "yourappsconsumersecretwhichislonger",
-    callback_url: "http://yourappsEXACTcallbackurl.com"
+    callback_url: "http://yourappsEXACTcallbackurl.com" // only necessary for overridding
 });
 
 4. Authorize or Make an API Call
@@ -36,12 +36,12 @@ var BH = new BirdHouse({
 
 At this point you can call six different functions:
 
-    - authorize() - this initiates the authorization sequence, storing credentials in the app's directory in a file called 'twitter.config', returns void
-    - deauthorize() - deletes the 'twitter.config' so the app no longer has the access tokens
-    - authorized() - returns bool whether or not the user is authorized
-    - get_tweets() - returns the last 20 tweets as an object (not as a string)
-    - tweet(text) - opens a tweet dialog box with the given text, sends the tweet upon hitting the "tweet" button, and returns the response from twitter, which will be the tweet itself, as an object (not as a string)
-    - api(url, method, params) - sends an api call to the given url by the given method with the given parameters which should be in url form, i.e. "count=20&since_id=13523859", and then returns the evaluated response; the responses are evaluated by:
+    - authorize: this initiates the authorization sequence, storing credentials in the app's directory in a file called 'twitter.config', returns void
+    - deauthorize: deletes the 'twitter.config' so the app no longer has the access tokens
+    - authorized: returns bool whether or not the user is authorized
+    - get_tweets: returns the last 20 tweets as an object (not as a string)
+    - tweet: opens a tweet dialog box with the given text, sends the tweet upon hitting the "tweet" button, and returns the response from twitter, which will be the tweet itself, as an object (not as a string)
+    - api: sends an api call to the given url by the given method with the given parameters which should be in url form, i.e. "count=20&since_id=13343859", and then returns the evaluated response; the responses are evaluated by:
 
         return eval('('+XHR.responseText+')');
 
@@ -60,14 +60,12 @@ So, once the redirected to the callback url it extracts the oauth_verifier varia
 
 1. Get the Request Token
 
-    a. Set the message paramters
-    b. Set the url to send the XHR request to
-    c. Send the XHR request
-    d. Store the request token and token secret in cfg
+    a. Make API request
+    b. Store the request token and token secret in cfg
 
 2. Get the Request Verifier
 
-    a. Open up a webview with the request token
+    a. Open up a webview to Twitter's site with the request token
     b. When webview has redirected to the Twitter app's callback,
        grab the request verifier from the URL
     c. Store the verifier in cfg
@@ -75,10 +73,9 @@ So, once the redirected to the callback url it extracts the oauth_verifier varia
 
 3. Get the Access Token
 
-    a. Set the message paramters
-    b. Set the url to send the XHR request to
-    c. Send the XHR request
-    d. Store the request token and token secret in cfg
+    a. Make API request
+    b. Store the request token and token secret in cfg
+    c. Save the cfg in twitter.config file
 
 4. Callback
 
@@ -89,6 +86,12 @@ Debugging
 
 Check out the "debug" branch for a version of BirdHouse that has a ton of debug outputs so you can see better what is going on. Please report on GitHub any issues or suggestions!
 
+    http://github.com/jpurcell/birdhouse/issues
+
+Also, check out the Wiki for FAQ and additional info.
+
+    http://github.com/jpurcell/birdhouse/wiki
+
 To Do
 =====
 
@@ -96,6 +99,7 @@ To Do
 2. Add as much customization as possible
 3. Better documentation and code comments
 4. Make a test app.js
+5. Make callback functions for tweet() and get_tweets()
 
 Known Issues
 ============
