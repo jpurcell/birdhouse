@@ -1,112 +1,14 @@
-==============
-BirdHouse v0.2
-==============
+=======================
+BirdHouse Debugger v0.4
+=======================
 
-Installation & Implementation
-=============================
+The debug branch has a ton of outputs in birdhouse.js so you can better see what is going on behind the scenes. For the full readme see the master branch.
 
-1. Get Dependencies
--------------------
+Be sure to post an issue ticket if you find any problems:
 
-Go to: http://oauth.googlecode.com/svn/code/javascript/
+http://github.com/jpurcell/birdhouse/issues
 
-    a. oauth.js
-    b. sha1.js
+Also, check the Wiki to see if your issue is common:
 
-2. Include and Initialize BirdHouse Class
------------------------------------------
-
-Ti.include('birdhouse.js');
-
-var BH = new BirdHouse({
-    consumer_key: "yourappsconsumerkey",
-    consumer_secret: "yourappsconsumersecretwhichislonger",
-    callback_url: "http://yourappsEXACTcallbackurl.com"
-});
-
-3. Authorize or Make an API Call
---------------------------------
-
-At this point you can call six different functions:
-
-    - authorize() - this initiates the authorization sequence, storing credentials in the app's directory in a file called 'twitter.config', returns void
-    - deauthorize() - deletes the 'twitter.config' so the app no longer has the access tokens
-    - authorized() - returns bool whether or not the user is authorized
-    - get_tweets() - returns the last 20 tweets as an object (not as a string)
-    - tweet(text) - opens a tweet dialog box with the given text, sends the tweet upon hitting the "tweet" button, and returns the response from twitter, which will be the tweet itself, as an object (not as a string)
-    - api(url, method, params) - sends an api call to the given url by the given method with the given parameters which should be in url form, i.e. "count=20&since_id=13523859", and then returns the evaluated response; the responses are evaluated by:
-
-        return eval('('+XHR.responseText+')');
-
-With any call, if the user is not authorized it will initiate the authorization process, thus, there is no need to initiated the authorization process before hand unless, for some reason, you wanted to get it out of the way. So, for example, to get the latest tweets,
-
-    var tweets = BH.get_tweets();
-
-How the Authorization Works
-===========================
-
-This script does not use the OOB (Out-Of-Band) method, the one where it gets the pin. It actually does something pretty slick. After getting the request tokens, it opens a WebView that sends the user to the authorization page on Twitter's site, and listens for when the page has redirected to a page with the 'oauth_verifier' in the url, which the page will be the app's callback url (or the callback url override if specified).
-
-As a quick note here, if the app's callback url immediately redirects to another page, the listener won't pick up that the url has changed until it finally hits the resultant page, and the 'oauth_verifier' token will be lost. So make sure whatever page the callback goes to does not have redirects set.
-
-So, once the redirected to the callback url it extracts the oauth_verifier variable from the url and stores it. Then, that token, combined with the request token, is exchanged for access tokens which are then stored and can be re-used over and over. Finally, if we are authorized and a callback function is set then call it. So, the general process looks like:
-
-1. Get the Request Token
-
-    a. Set the message paramters
-    b. Set the url to send the XHR request to
-    c. Send the XHR request
-    d. Store the request token and token secret in cfg
-
-2. Get the Request Verifier
-
-    a. Open up a webview with the request token
-    b. When webview has redirected to the Twitter app's callback,
-       grab the request verifier from the URL
-    c. Store the verifier in cfg
-    d. Close the webview
-
-3. Get the Access Token
-
-    a. Set the message paramters
-    b. Set the url to send the XHR request to
-    c. Send the XHR request
-    d. Store the request token and token secret in cfg
-
-4. Callback
-
-    If a callback function is set, call it if we are now authorized.
-
-Debugging
-=========
-
-Check out the "debug" branch for a version of BirdHouse that has a ton of debug outputs so you can see better what is going on. Please report on GitHub any issues or suggestions!
-
-To Do
-=====
-
-1. More testing, esp. with iPhone
-2. Add as much customization as possible
-3. Better documentation and code comments
-4. Make a test app.js
-
-Known Issues
-============
-
-There are no known issues at this time.
-
-Credits
-=======
-
-This code came from a lot of debugging, implementing some of my own ideas, and I must give credit to the people I got a lot of the code from:
-
-    - Netflix for the oauth.js, 
-    - Paul Johnston and crew for sha1.js,
-    - The oauth developers who made the examples here:
-        http://oauth.googlecode.com/svn/code/javascript/
-    - David Riccitelli for his script that is awesome, but doesn't work on Android,
-        http://code.google.com/p/oauth-adapter/
-    - Ketan Majmudar for modifying the oauth-adapter for Android,
-        https://github.com/stereoket/oauth-adapter
-    - Mike, my colleague at iEntry who initiated the BirdHouse project in PHP.
+http://github.com/jpurcell/birdhouse/wiki
 
