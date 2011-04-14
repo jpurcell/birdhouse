@@ -1,14 +1,14 @@
 =======================
-BirdHouse Debugger v0.4
+BirdHouse Debugger v0.5
 =======================
 
 The debug branch has a ton of outputs in birdhouse.js so you can better see what is going on behind the scenes. For the full readme see the master branch.
 
 Be sure to post an issue ticket if you find any problems:
 
-http://github.com/jpurcell/birdhouse/issues
+    http://github.com/jpurcell/birdhouse/issues
 
 Also, check the Wiki to see if your issue is common:
 
-http://github.com/jpurcell/birdhouse/wiki
+    http://github.com/jpurcell/birdhouse/wiki
 
