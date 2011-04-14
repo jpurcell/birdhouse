@@ -1,5 +1,5 @@
 ==============
-BirdHouse v0.4
+BirdHouse v0.5
 ==============
 
 Installation & Implementation
@@ -49,12 +49,24 @@ With any call, if the user is not authorized it will initiate the authorization 
 
     var tweets = BH.get_tweets();
 
-How the Authorization Works
-===========================
+Note that with most of these functions you can send a callback function. Because the XHR requests will be completed AFTER the functions have already sent a return value, in order to tell whether or not an API request was made successfully, you will need to use a callback, such as:
+
+    BH.get_tweets(function(e){
+        if (e===false) {
+            // it failed
+        } else {
+            // it worked
+        }
+    });
+
+How BirdHouse Authorizes with Twitter
+=====================================
 
 This script does not use the OOB (Out-Of-Band) method, the one where it gets the pin. It actually does something pretty slick. After getting the request tokens, it opens a WebView that sends the user to the authorization page on Twitter's site, and listens for when the page has redirected to a page with the 'oauth_verifier' in the url, which the page will be the app's callback url (or the callback url override if specified).
 
-As a quick note here, if the app's callback url immediately redirects to another page, the listener won't pick up that the url has changed until it finally hits the resultant page, and the 'oauth_verifier' token will be lost. So make sure whatever page the callback goes to does not have redirects set.
+Note 1: As a quick note here, if the app's callback url immediately redirects to another page, the listener won't pick up that the url has changed until it finally hits the resultant page, and the 'oauth_verifier' token will be lost. So make sure whatever page the callback goes to does not have redirects set.
+
+Note 2: A few if statements had to be made on the event that someone clicks "denY" or "sign up for an account". In both cases, the window immediately closes. It would be very expensive in terms of time to figure out what URL's are used when making an account and upon success redirect back to the allow screen, so this option is killed.
 
 So, once the redirected to the callback url it extracts the oauth_verifier variable from the url and stores it. Then, that token, combined with the request token, is exchanged for access tokens which are then stored and can be re-used over and over. Finally, if we are authorized and a callback function is set then call it. So, the general process looks like:
 
@@ -66,10 +78,16 @@ So, once the redirected to the callback url it extracts the oauth_verifier varia
 2. Get the Request Verifier
 
     a. Open up a webview to Twitter's site with the request token
-    b. When webview has redirected to the Twitter app's callback,
+    b. If 'account' or 'suspended' are in the URL, the user has
+       clicked 'sign up', so kill the process
+    c. Else if 'Redirect' is not in the HTML title of the page,
+       we know the user has clicked 'deny', so kill the process
+    d. Else, we know the user clicked 'allow', so begin listening
+       for the keys in the URL
+    e. When webview has redirected to the Twitter app's callback,
        grab the request verifier from the URL
-    c. Store the verifier in cfg
-    d. Close the webview
+    f. Store the verifier in cfg
+    g. Close the webview
 
 3. Get the Access Token
 
@@ -79,7 +97,8 @@ So, once the redirected to the callback url it extracts the oauth_verifier varia
 
 4. Callback
 
-    If a callback function is set, call it if we are now authorized.
+    If a callback function is set, call it and send whether or not we are
+    authorized.
 
 Debugging
 =========
@@ -95,11 +114,10 @@ Also, check out the Wiki for FAQ and additional info.
 To Do
 =====
 
-1. More testing, esp. with iPhone
+1. More testing with other API calls
 2. Add as much customization as possible
 3. Better documentation and code comments
 4. Make a test app.js
-5. Make callback functions for tweet() and get_tweets()
 
 Known Issues
 ============
