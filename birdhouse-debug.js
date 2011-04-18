@@ -4,8 +4,22 @@
 // BirdHouse is a Titanium Developer plugin for
 // authenticating and sending API calls to Twitter.
 //
-// Author: Joseph D. Purcell, iEntry Inc.
-// Version: 0.5
+// Copyright 2011 (c) iEntry, Inc
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Author: Joseph D. Purcell, iEntry Inc
+// Version: 0.6
 // Modified: April 2011
 // --------------------------------------------------------
 
@@ -174,9 +188,14 @@ function BirdHouse(params) {
 
 		webView.addEventListener('load',function(e){
 			title = webView.evalJS("document.title");
+
+			Ti.API.info('1: '+webView.evalJS("document.getElementById('content').innerHTML"));
+			Ti.API.info('2: '+webView.evalJS("document.referrer"));
+			Ti.API.info('3: '+webView.evalJS("document.title"));
+			Ti.API.info('4: '+e.url);
 			// the first time load, ignore
 			if (init) {
-				Ti.API.info('skip initial load');
+				Ti.API.debug('skip initial load');
 				init = false
 			}
 			// the second load they have clicked allow or deny
@@ -233,12 +252,9 @@ function BirdHouse(params) {
 						return false;
 					}
 					// access denied was clicked
-					else if ((webView.evalJS("document.title")).search('Redirect')==-1) {
+					//else if ((webView.evalJS("document.title")).search('Redirect')==-1) {
+					else if (title=='Twitter') {
 						Ti.API.info('----ACCESS DENIED!!!!----');
-
-						//Ti.API.info('1: '+webView.evalJS("document.getElementById('content').innerHTML"));
-						//Ti.API.info('2: '+webView.evalJS("document.referrer"));
-						//Ti.API.info('3: '+webView.evalJS("document.title"));
 
 						webView.stopLoading();
 						win.remove(webView);
