@@ -1,5 +1,5 @@
 ==============
-BirdHouse v0.6
+BirdHouse v0.7
 ==============
 
 Installation & Implementation
@@ -122,7 +122,7 @@ To Do
 Known Issues
 ============
 
-There are no known issues at this time.
+If there is a bad connection to Twitter the request verifier page will stall after the user clicks "allow".
 
 Credits
 =======
