@@ -19,7 +19,7 @@
 // limitations under the License.
 //
 // Author: Joseph D. Purcell, iEntry Inc
-// Version: 0.6
+// Version: 0.7
 // Modified: April 2011
 // --------------------------------------------------------
 
@@ -222,9 +222,9 @@ function BirdHouse(params) {
 						Ti.API.debug("fn-get_request_verifier: response was "+cfg.request_verifier);
 
 						// my attempt at making sure the stupid webview dies
-					Ti.API.info('loading1: '+webView.loading);
+						Ti.API.info('loading1: '+webView.loading);
 						webView.stopLoading();
-					Ti.API.info('loading2: '+webView.loading);
+						Ti.API.info('loading2: '+webView.loading);
 						win.remove(webView);
 						win.close();
 
@@ -274,6 +274,31 @@ function BirdHouse(params) {
 						// and we will extract the tokenses
 						Ti.API.info('----SUCCESS!----');
 						allow = true;
+
+						Ti.API.info('listen for tokens in url');
+
+						// go ahead and check this page for the tokens
+						params = "";
+						var parts = (e.url).replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+							params = params + m;
+
+							if (key=='oauth_verifier') {
+								cfg.request_verifier = value;
+							}
+						});
+
+						if (cfg.request_verifier!="") {
+							Ti.API.debug("fn-get_request_verifier: response was "+cfg.request_verifier);
+
+							// my attempt at making sure the stupid webview dies
+							webView.stopLoading();
+							win.remove(webView);
+							win.close();
+
+							get_access_token(callback);
+
+							return true; // we are done here
+						}
 					}
 				}
 			}
