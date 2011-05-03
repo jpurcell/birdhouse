@@ -1,5 +1,5 @@
 ==============
-BirdHouse v0.7
+BirdHouse v0.8
 ==============
 
 Installation & Implementation
@@ -31,16 +31,20 @@ var BH = new BirdHouse({
     callback_url: "http://yourappsEXACTcallbackurl.com" // only necessary for overridding
 });
 
+Note that you may have to tweak the path in birdhouse.js depending on where the file is placed.
+
 4. Authorize or Make an API Call
 --------------------------------
 
-At this point you can call six different functions:
+You can call eight different functions:
 
     - authorize: this initiates the authorization sequence, storing credentials in the app's directory in a file called 'twitter.config', returns void
     - deauthorize: deletes the 'twitter.config' so the app no longer has the access tokens
     - authorized: returns bool whether or not the user is authorized
     - get_tweets: returns the last 20 tweets as an object (not as a string)
-    - tweet: opens a tweet dialog box with the given text, sends the tweet upon hitting the "tweet" button, and returns the response from twitter, which will be the tweet itself, as an object (not as a string)
+    - tweet: opens a tweet dialog box optionally with the given text, sends the tweet upon hitting the "tweet" button, and returns the response from twitter, which will be the tweet itself, as an object (not as a string)
+    - short_tweet: same as tweet but has a third button called "Shorten" which shortens any URLs in the tweet
+    - shorten_url: returns a shortened URL
     - api: sends an api call to the given url by the given method with the given parameters which should be in url form, i.e. "count=20&since_id=13343859", and then returns the evaluated response; the responses are evaluated by:
 
         return eval('('+XHR.responseText+')');
@@ -117,12 +121,12 @@ To Do
 1. More testing with other API calls
 2. Add as much customization as possible
 3. Better documentation and code comments
-4. Make a test app.js
 
 Known Issues
 ============
 
-If there is a bad connection to Twitter the request verifier page will stall after the user clicks "allow".
+- If there is a bad connection to Twitter the request verifier page will stall after the user clicks "allow".
+- The short_tweet does not support punctuation after the URL. The regex needs updated.
 
 Credits
 =======

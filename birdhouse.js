@@ -19,8 +19,8 @@
 // limitations under the License.
 //
 // Author: Joseph D. Purcell, iEntry Inc
-// Version: 0.7
-// Modified: April 2011
+// Version: 0.8
+// Modified: May 2011
 // --------------------------------------------------------
 
 // INCLUDES
@@ -115,6 +115,7 @@ function BirdHouse(params) {
 				cfg.request_token = responseParams['oauth_token'];
 				cfg.request_token_secret = responseParams['oauth_token_secret'];
 
+
 				get_request_verifier(callback);
 			}
 		},false,true,false);
@@ -161,6 +162,7 @@ function BirdHouse(params) {
 
 		webView.addEventListener('load',function(e){
 			title = webView.evalJS("document.title");
+
 			// the first time load, ignore
 			if (init) {
 				init = false
@@ -169,6 +171,7 @@ function BirdHouse(params) {
 			else {
 				// listen for the tokenses if "allow" was clicked
 				if (allow) {
+
 					// success!
 					params = "";
 					var parts = (e.url).replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
@@ -180,6 +183,7 @@ function BirdHouse(params) {
 					});
 
 					if (cfg.request_verifier!="") {
+
 						// my attempt at making sure the stupid webview dies
 						webView.stopLoading();
 						win.remove(webView);
@@ -196,6 +200,7 @@ function BirdHouse(params) {
 					// user is creating a new account (goes to a suspended page if clicked second time)
 					// just kill the auth process and say "go do this somewhere else"
 					if ((e.url).search('account')!=-1 || (e.url).search('suspended')!=-1) {
+
 						webView.stopLoading();
 						win.remove(webView);
 						win.close();
@@ -207,7 +212,9 @@ function BirdHouse(params) {
 						return false;
 					}
 					// access denied was clicked
+					//else if ((webView.evalJS("document.title")).search('Redirect')==-1) {
 					else if (title=='Twitter') {
+
 						webView.stopLoading();
 						win.remove(webView);
 						win.close();
@@ -227,8 +234,7 @@ function BirdHouse(params) {
 						allow = true;
 
 
-
-						// go ahead and check for the request verifier in case the page stalls
+						// go ahead and check this page for the tokens
 						params = "";
 						var parts = (e.url).replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
 							params = params + m;
@@ -239,6 +245,7 @@ function BirdHouse(params) {
 						});
 
 						if (cfg.request_verifier!="") {
+
 							// my attempt at making sure the stupid webview dies
 							webView.stopLoading();
 							win.remove(webView);
@@ -252,6 +259,7 @@ function BirdHouse(params) {
 				}
 			}
 		});
+
 	}
 
 	// --------------------------------------------------------
@@ -277,9 +285,12 @@ function BirdHouse(params) {
 				cfg.screen_name = responseParams['screen_name'];
 				accessor.tokenSecret = cfg.access_token_secret;
 
+
 				save_access_token();
 
 				authorized = load_access_token();
+
+
 
 				// execute the callback function
 				if(typeof(callback)=='function'){
@@ -354,6 +365,7 @@ function BirdHouse(params) {
 			access_token_secret: cfg.access_token_secret
 		};
 		file.write(JSON.stringify(config));
+
 	}
 
 	// --------------------------------------------------------
@@ -377,7 +389,14 @@ function BirdHouse(params) {
 	//	- the setUrlParams and setHeader should only need
 	//	  to be set whenever getting request tokens; values
 	//	  should be 'true' and 'false' respectively
-	//	- take advantage of the callback function
+	//	- take advantage of the callback function, if you
+	//	  want to tweet a message and then display an alert:
+	//	      BH.tweet("some text",function(){
+	//	          alertDialog = Ti.UI.createAlertDialog({
+	//	              message:'Tweet posted!'
+	//	          });
+	//	          alertDialog.show();
+	//	      });
 	//
 	// Returns: false on failure and the responseText on
 	//   success.
@@ -389,7 +408,6 @@ function BirdHouse(params) {
 		if (!authorized && (typeof(auth)=='undefined' || auth===true)) {
 			authorize(function(retval){
 				if (!retval) {
-					// we have returned from authorizing, but auth is false, so return false & dont execute API
 					// execute the callback function
 					if (typeof(callback)=='function') {
 						callback(false);
@@ -397,13 +415,13 @@ function BirdHouse(params) {
 
 					return false;
 				} else {
-					// fn-api: we have returned from authorizing & we are authorized!
 					api(url,method,params,callback,auth);
 				}
 			});
 		}
 		// user is authorized so execute API
 		else {
+
 			// VALIDATE INPUT
 			if (method!="POST" && method!="GET") {
 				return false;
@@ -415,19 +433,19 @@ function BirdHouse(params) {
 			// VARIABLES
 			var initparams = params;
 
-			// set params
 			if (params!=null) {
 				params = params + "&";
 			}
+
 			if (cfg.access_token!='') {
 				params = params + "oauth_token="+cfg.access_token;
 			}
-
-			// set & sign the message
 			var message = set_message(url, method, params);
+			//var message = createMessage(url, method, params);
+
 			OAuth.SignatureMethod.sign(message, accessor);
 
-			// set the URL to send request to
+
 			// if we are getting request tokens, all params have to be set in URL
 			if (typeof(setUrlParams)!='undefined' && setUrlParams==true) {
 				finalUrl = OAuth.addToURL(message.action, message.parameters);
@@ -437,13 +455,16 @@ function BirdHouse(params) {
 				finalUrl = OAuth.addToURL(message.action, initparams);
 			}
 
+
 			var XHR = Ti.Network.createHTTPClient();
 			
 			// on success, grab the request token
 			XHR.onload = function() {
+
 				// execute the callback function
 				if (typeof(callback)=='function') {
 					callback(XHR.responseText);
+				} else {
 				}
 
 				return XHR.responseText;
@@ -452,6 +473,11 @@ function BirdHouse(params) {
 			// on error, show message
 			XHR.onerror = function(e) {
 				// access token and token secret are wrong
+				if (e.error=="Unauthorized") {
+
+				} else {
+				}
+
 				return false;
 			}
 			
@@ -487,7 +513,7 @@ function BirdHouse(params) {
 	//
 	// In Parameters:
 	//	text (String) - the default text for the text area
-	//	callback (Function) - function to call after XHR
+	//	callback (Function) - function to use on callback
 	// --------------------------------------------------------
 	function tweet(text,callback) {
 		// VALIDATE INPUT
@@ -509,6 +535,7 @@ function BirdHouse(params) {
 
 					return true;
 				} else {
+
 					// execute the callback function
 					if (typeof(callback)=='function') {
 						callback(false);
@@ -537,7 +564,7 @@ function BirdHouse(params) {
 					borderColor:'#224466',
 					borderWidth:3,
 					backgroundColor:'#559abb',
-					borderRadius:3.0
+					borderRadius:10
 				});
 				var tweet = Ti.UI.createTextArea({
 					value:text,
@@ -567,6 +594,10 @@ function BirdHouse(params) {
 					left:(Ti.Platform.displayCaps.platformWidth-60), // 30 px from right side,
 					color:'#FFF',
 					text:(parseInt((140-chars))+'')
+				});
+				// show keyboard on load
+				winTW.addEventListener('open',function(){
+					tweet.focus();
 				});
 			}
 			// Android UI
@@ -625,36 +656,37 @@ function BirdHouse(params) {
 				charcount.text = parseInt(chars)+'';
 			});
 			btnTW.addEventListener('click',function() {
-				var retval = send_tweet("status="+escape(tweet.value));
-				if (retval===false) {
-					var alertDialog = Titanium.UI.createAlertDialog({
-						title: 'System Message',
-						buttonNames: ['OK']
-					});
-					alertDialog.message = "Tweet failed to send!";
+				send_tweet("status="+escape(tweet.value),function(retval){
+					if (retval===false) {
+						var alertDialog = Titanium.UI.createAlertDialog({
+							title: 'System Message',
+							buttonNames: ['OK']
+						});
+						alertDialog.message = "Tweet failed to send!";
 
-					// execute the callback function
-					if (typeof(callback)=='function') {
-						callback(false);
+						// execute the callback function
+						if (typeof(callback)=='function') {
+							callback(false);
+						}
+
+						return false;
+					} else {
+						// hide the keyboard on Android because it doesn't automatically
+						if (Ti.Platform.osname=='android') {
+							Titanium.UI.Android.hideSoftKeyboard();
+						}
+
+						// execute the callback function
+						if (typeof(callback)=='function') {
+							callback(true);
+						}
+
+						winBG.close();
+						winTW.close();
+
+						return true;
 					}
-
-					return false;
-				} else {
-					// hide the keyboard on Android because it doesn't automatically
-					if (Ti.Platform.osname=='android') {
-						Titanium.UI.Android.hideSoftKeyboard();
-					}
-
-					// execute the callback function
-					if (typeof(callback)=='function') {
-						callback(false);
-					}
-
-					winBG.close();
-					winTW.close();
-
-					return true;
-				}
+				});
 			});
 			btnCancel.addEventListener('click',function() {
 				// hide the keyboard on Android because it doesn't automatically
@@ -674,6 +706,262 @@ function BirdHouse(params) {
 	}
 
 	// --------------------------------------------------------
+	// short_tweet
+	//
+	// Opens a tweet dialog box for the user to make a tweet
+	// to their page after checking if the user is authorized
+	// with the app. If the user is unauthorized, the
+	// authorization process will be initiated first. Also,
+	// a 'Shorten' button is provided to shorten any links
+	// in the tweet before posting.
+	//
+	// In Parameters:
+	//	text (String) - the default text for the text area
+	//	callback (Function) - function to use on callback
+	// --------------------------------------------------------
+	function short_tweet(text,callback) {
+		// VALIDATE INPUT
+		// just in case someone only wants to send a callback
+		if (typeof(text)=='function' && typeof(callback)=='undefined') {
+			callback = text;
+			text = '';
+		}
+		if (typeof(text)=='undefined') {
+			text = '';
+		}
+
+		var obj = this;
+		obj.mytweet = text;
+		if (authorized === false) {
+			authorize(function(resp){
+				if (resp) {
+					obj.tweet(obj.mytweet);
+
+					return true;
+				} else {
+
+					// execute the callback function
+					if (typeof(callback)=='function') {
+						callback(false);
+					}
+
+					return false;
+				}
+			});
+		} else {
+			var chars = (typeof(text)!='undefined' && text!=null)?text.length:0;
+
+			var winBG = Titanium.UI.createWindow({
+				backgroundColor:'#000',
+				opacity:0.60
+			});
+
+			// the UI window looks completely different on iPhone vs. Android
+			// iPhone UI
+			if (Ti.Platform.osname=='iphone') {
+				var winTW = Titanium.UI.createWindow({
+					height:((Ti.Platform.displayCaps.platformHeight*0.5)-15), // half because the keyboard takes up half
+					width:(Ti.Platform.displayCaps.platformWidth-20),
+					top:10,
+					right:10,
+					left:10,
+					borderColor:'#224466',
+					borderWidth:3,
+					backgroundColor:'#559abb',
+					borderRadius:10
+				});
+				var tweet = Ti.UI.createTextArea({
+					value:text,
+					height:((Ti.Platform.displayCaps.platformHeight*0.5)-100),
+					width:(Ti.Platform.displayCaps.platformWidth-48),
+					font:{fontSize:16},
+					top:14,
+					left:14,
+					right:14
+				});
+				var btnShorten = Ti.UI.createButton({
+					title:'Shorten',
+					width:80,
+					height:30,
+					top:((Ti.Platform.displayCaps.platformHeight*0.5)-75)
+				});
+				var btnTW = Ti.UI.createButton({
+					title:'Tweet!',
+					width:80,
+					height:30,
+					top:((Ti.Platform.displayCaps.platformHeight*0.5)-75),
+					right:24
+				});
+				var btnCancel = Ti.UI.createButton({
+					title:'Cancel',
+					width:80,
+					height:30,
+					top:((Ti.Platform.displayCaps.platformHeight*0.5)-75),
+					left:24
+				});
+				var charcount = Ti.UI.createLabel({
+					top:((Ti.Platform.displayCaps.platformHeight*0.5)-55),
+					left:(Ti.Platform.displayCaps.platformWidth-60), // 30 px from right side,
+					color:'#FFF',
+					text:(parseInt((140-chars))+'')
+				});
+				// show keyboard on load
+				winTW.addEventListener('open',function(){
+					tweet.focus();
+				});
+			}
+			// Android UI
+			else {
+				var winTW = Titanium.UI.createWindow({
+					height:264,
+					top:10,
+					right:10,
+					left:10,
+					borderColor:'#224466',
+					borderWidth:3,
+					backgroundColor:'#559abb',
+					borderRadius:3.0
+				});
+				var tweet = Ti.UI.createTextArea({
+					value:text,
+					height:160,
+					top:14,
+					left:14,
+					right:14
+				});
+				var btnShorten = Ti.UI.createButton({
+					title:'Shorten',
+					width:100,
+					top:182
+				});
+				var btnTW = Ti.UI.createButton({
+					title:'Tweet',
+					width:100,
+					top:182,
+					right:24
+				});
+				var btnCancel = Ti.UI.createButton({
+					title:'Cancel',
+					width:100,
+					top:182,
+					left:24
+				});
+				var charcount = Ti.UI.createLabel({
+					bottom:10,
+					right:14,
+					color:'#FFF',
+					text:(parseInt((140-chars))+'')
+				});
+			}
+			tweet.addEventListener('change',function(e) {
+				chars = (140-e.value.length);
+				if (chars<11) {
+					if (charcount.color!='#D40D12') {
+						charcount.color = '#D40D12';
+					}
+				} else if (chars<20) {
+					if (charcount.color!='#5C0002') {
+						charcount.color = '#5C0002';
+					}
+				} else {
+					if (charcount.color!='#FFF') {
+						charcount.color = '#FFF';
+					}
+				}
+				charcount.text = parseInt(chars)+'';
+			});
+			btnShorten.addEventListener('click',function() {
+				var actInd = Titanium.UI.createActivityIndicator({
+					style:Titanium.UI.iPhone.ActivityIndicatorStyle.BIG,
+					height:30,
+					width:30,
+					top:30
+				});
+				indWin = Titanium.UI.createWindow();
+				indWin.add(actInd);
+				indWin.open();
+				actInd.show();
+
+				// replace URLs in the text with shortened URLs
+				var urlRegex = /(https?:\/\/[^\s]+)/gi;
+				var urls = [];
+				(tweet.value).replace(urlRegex, function(url) {
+					urls.push(url);
+				});
+				for (var i=0; i<urls.length; i++) {
+					// get shorturl
+					shorten_url(urls[i],function(shorturl,url){
+						if (shorturl!=false) {
+							tweet.value = (tweet.value).replace(url, shorturl);
+							indWin.close();
+							actInd.hide();
+							return true;
+						} else {
+							indWin.close();
+							actInd.hide();
+							var alertDialog = Titanium.UI.createAlertDialog({
+								title: 'System Message',
+								message: "Could not shorten the url "+url,
+								buttonNames: ['OK']
+							});
+							alertDialog.show();
+							return false;
+						}
+					});
+				}
+			});
+			btnTW.addEventListener('click',function() {
+				send_tweet("status="+escape(tweet.value),function(retval){
+					if (retval===false) {
+						var alertDialog = Titanium.UI.createAlertDialog({
+							title: 'System Message',
+							buttonNames: ['OK']
+						});
+						alertDialog.message = "Tweet failed to send!";
+
+						// execute the callback function
+						if (typeof(callback)=='function') {
+							callback(false);
+						}
+
+						return false;
+					} else {
+						// hide the keyboard on Android because it doesn't automatically
+						if (Ti.Platform.osname=='android') {
+							Titanium.UI.Android.hideSoftKeyboard();
+						}
+
+						// execute the callback function
+						if (typeof(callback)=='function') {
+							callback(true);
+						}
+
+						winBG.close();
+						winTW.close();
+
+						return true;
+					}
+				});
+			});
+			btnCancel.addEventListener('click',function() {
+				// hide the keyboard on Android because it doesn't automatically
+				if (Ti.Platform.osname=='android') {
+					Titanium.UI.Android.hideSoftKeyboard();
+				}
+				winBG.close();
+				winTW.close();
+			});
+			winTW.add(charcount);
+			winTW.add(tweet);
+			winTW.add(btnShorten);
+			winTW.add(btnTW);
+			winTW.add(btnCancel);
+			winBG.open();
+			winTW.open();
+		}
+	}
+
+	// --------------------------------------------------------
 	// send_tweet
 	//
 	// Makes an API call to Twitter to post a tweet.
@@ -681,27 +969,79 @@ function BirdHouse(params) {
 	// In Parameters:
 	//	params (String) - the string of optional and
 	//	  required parameters in url form
+	//	callback (Function) - function to call on completion
 	// --------------------------------------------------------
-	function send_tweet(params) {
+	function send_tweet(params,callback) {
 		api('http://api.twitter.com/1/statuses/update.json','POST',params,function(resp){
 			if (resp!=false) {
+				if (typeof(callback)=='function') {
+					callback(true);
+				}
 				return true;
 			} else {
+				if (typeof(callback)=='function') {
+					callback(false);
+				}
 				return false;
 			}
 		});
 	}
 
+
+	// --------------------------------------------------------
+	// shorten_url
+	//
+	// Shortens a URL using twe.ly.
+	//
+	// In Parameters:
+	//	url (String) - the url to shorten
+	//
+	// Returns:
+	//	shorturl (String) - the shortened URL, else false
+	//	callback (Function) - function to call on completion
+	// --------------------------------------------------------
+	function shorten_url(url,callback) {
+
+
+		var XHR = Titanium.Network.createHTTPClient();
+		XHR.open("GET","http://www.twe.ly/short.php?url="+url+"&json=1");
+		XHR.onload = function () {
+			try {
+				shorturl = JSON.parse(XHR.responseText);
+			} catch(e) {
+				shorturl = false;
+			}
+
+			if (shorturl!=false && shorturl.substr(0,5)=='Sorry') {
+				shorturl = false;
+			}
+
+			if (typeof(callback)=='function') {
+				callback(shorturl,url);
+			}
+
+			return shorturl;
+		};
+		XHR.onerror = function(e) {
+
+			if (typeof(callback)=='function') {
+				callback(false);
+			}
+
+			return false;
+		};
+		XHR.send();
+	}
+
 	// --------------------------------------------------------
 	// get_tweets
 	//
-	// Makes a TWitter API call to get tweets from the friends
-	// timeline.
+	// Makes a TWitter API call to get tweets.
 	//
 	// In Parameters:
 	//	params (String) - the string of optional and
 	//	  required parameters in url form
-	//	callback (Function) - function to call after XHR
+	//	callback (Function) - function to use on callback
 	// --------------------------------------------------------
 	function get_tweets(params,callback) {
 		// just in case someone only wants to send a callback
@@ -712,7 +1052,6 @@ function BirdHouse(params) {
 
 		api("https://api.twitter.com/1/statuses/friends_timeline.json","GET",params,function(tweets){
 			try {
-				// parse the JSON, because there isn't a case where you want a string instead of obj returned
 				tweets = JSON.parse(tweets);
 			} catch (e) {
 				tweets = false;
@@ -739,21 +1078,15 @@ function BirdHouse(params) {
 	//	callback (Function) - a function to call after
 	//	  the user has been authorized; note that it won't
 	//	  be executed until get_access_token(), unless we
-	//	  are already authorized, and we will call it here
+	//	  are already authorized.
 	//
-	// Returns: true if the user is authorized, else false
+	// Returns: true if the user is authorized
 	// --------------------------------------------------------
 	function authorize(callback) {
 		if (!authorized) {
 			get_request_token(callback); // get_request_token or a function it calls will call callback
-		} else {
-			var alertDialog = Titanium.UI.createAlertDialog({
-				title: 'Error Message',
-				message: 'You are already authorized!',
-				buttonNames: ['Schweet!']
-			});
-			alertDialog.show();
 
+		} else {
 			// execute the callback function
 			if(typeof(callback)=='function'){
 				callback(authorized);
@@ -776,16 +1109,13 @@ function BirdHouse(params) {
 	//	callback (Function) - function to call after
 	//	  user is deauthorized
 	//
-	// Returns: true if the user is deauthorized, else false
+	// Returns: true if the user is deauthorized
 	// --------------------------------------------------------
 	function deauthorize(callback) {
 		if (authorized) {
-			// delete the config file
 			var file = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, 'twitter.config');
 			file.deleteFile();
-			// check to make sure it was deleted by re-setting authorized
 			authorized = load_access_token();
-			// reset config
 			accessor.tokenSecret = "";
 			cfg.access_token = "";
 			cfg.access_token_secret = "";
@@ -821,6 +1151,8 @@ function BirdHouse(params) {
 	this.authorized = function() { return authorized; }
 	this.get_tweets = get_tweets;
 	this.tweet = tweet;
+	this.short_tweet = short_tweet;
+	this.shorten_url = shorten_url;
 
 	// --------------------------------------------------------
 	// =================== INITIALIZE =========================
