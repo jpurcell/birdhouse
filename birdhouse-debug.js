@@ -19,8 +19,8 @@
 // limitations under the License.
 //
 // Author: Joseph D. Purcell, iEntry Inc
-// Version: 0.7
-// Modified: April 2011
+// Version: 0.8
+// Modified: May 2011
 // --------------------------------------------------------
 
 // INCLUDES
@@ -141,8 +141,6 @@ function BirdHouse(params) {
 				Ti.API.debug("fn-get_request_token: callback is "+JSON.stringify(callback));
 
 				get_request_verifier(callback);
-			} else {
-				Ti.API.info("Failed to authorized.");
 			}
 		},false,true,false);
 	}
@@ -644,7 +642,7 @@ function BirdHouse(params) {
 					borderColor:'#224466',
 					borderWidth:3,
 					backgroundColor:'#559abb',
-					borderRadius:3.0
+					borderRadius:10
 				});
 				var tweet = Ti.UI.createTextArea({
 					value:text,
@@ -674,6 +672,10 @@ function BirdHouse(params) {
 					left:(Ti.Platform.displayCaps.platformWidth-60), // 30 px from right side,
 					color:'#FFF',
 					text:(parseInt((140-chars))+'')
+				});
+				// show keyboard on load
+				winTW.addEventListener('open',function(){
+					tweet.focus();
 				});
 			}
 			// Android UI
@@ -732,38 +734,40 @@ function BirdHouse(params) {
 				charcount.text = parseInt(chars)+'';
 			});
 			btnTW.addEventListener('click',function() {
-				var retval = send_tweet("status="+escape(tweet.value));
-				if (retval===false) {
-					var alertDialog = Titanium.UI.createAlertDialog({
-						title: 'System Message',
-						buttonNames: ['OK']
-					});
-					alertDialog.message = "Tweet failed to send!";
+				send_tweet("status="+escape(tweet.value),function(retval){
+					Ti.API.info('fn-tweet: retval is '+retval);
+					if (retval===false) {
+						var alertDialog = Titanium.UI.createAlertDialog({
+							title: 'System Message',
+							buttonNames: ['OK']
+						});
+						alertDialog.message = "Tweet failed to send!";
 
-					// execute the callback function
-					if (typeof(callback)=='function') {
-						Ti.API.info('CALLBACK 1-false');
-						callback(false);
+						// execute the callback function
+						if (typeof(callback)=='function') {
+							Ti.API.info('CALLBACK 1-false');
+							callback(false);
+						}
+
+						return false;
+					} else {
+						// hide the keyboard on Android because it doesn't automatically
+						if (Ti.Platform.osname=='android') {
+							Titanium.UI.Android.hideSoftKeyboard();
+						}
+
+						// execute the callback function
+						if (typeof(callback)=='function') {
+							Ti.API.info('CALLBACK 1-true');
+							callback(true);
+						}
+
+						winBG.close();
+						winTW.close();
+
+						return true;
 					}
-
-					return false;
-				} else {
-					// hide the keyboard on Android because it doesn't automatically
-					if (Ti.Platform.osname=='android') {
-						Titanium.UI.Android.hideSoftKeyboard();
-					}
-
-					// execute the callback function
-					if (typeof(callback)=='function') {
-						Ti.API.info('CALLBACK 1-true');
-						callback(false);
-					}
-
-					winBG.close();
-					winTW.close();
-
-					return true;
-				}
+				});
 			});
 			btnCancel.addEventListener('click',function() {
 				// hide the keyboard on Android because it doesn't automatically
@@ -783,6 +787,275 @@ function BirdHouse(params) {
 	}
 
 	// --------------------------------------------------------
+	// short_tweet
+	//
+	// Opens a tweet dialog box for the user to make a tweet
+	// to their page after checking if the user is authorized
+	// with the app. If the user is unauthorized, the
+	// authorization process will be initiated first. Also,
+	// a 'Shorten' button is provided to shorten any links
+	// in the tweet before posting.
+	//
+	// In Parameters:
+	//	text (String) - the default text for the text area
+	//	callback (Function) - function to use on callback
+	// --------------------------------------------------------
+	function short_tweet(text,callback) {
+		// VALIDATE INPUT
+		// just in case someone only wants to send a callback
+		if (typeof(text)=='function' && typeof(callback)=='undefined') {
+			callback = text;
+			text = '';
+		}
+		if (typeof(text)=='undefined') {
+			text = '';
+		}
+
+		Ti.API.info('----- Opening Tweet UI -----');
+		var obj = this;
+		obj.mytweet = text;
+		Ti.API.debug("fn-tweet: authorized is: "+authorized);
+		if (authorized === false) {
+			Ti.API.debug('fn-tweet: we are not authorized, so initiate authorization sequence');
+			authorize(function(resp){
+				if (resp) {
+					Ti.API.info('alright, we can tweet now: typeof '+JSON.stringify(tweet));
+					obj.tweet(obj.mytweet);
+
+					return true;
+				} else {
+					Ti.API.debug("fn-tweet: after asking for authorization, we didn't authorize, so we can't send the tweet.");
+
+					// execute the callback function
+					if (typeof(callback)=='function') {
+						Ti.API.info('CALLBACK 0-false');
+						callback(false);
+					}
+
+					return false;
+				}
+			});
+		} else {
+			Ti.API.debug('fn-tweet: we are authorized, initiate tweet sequence');
+			var chars = (typeof(text)!='undefined' && text!=null)?text.length:0;
+
+			var winBG = Titanium.UI.createWindow({
+				backgroundColor:'#000',
+				opacity:0.60
+			});
+
+			// the UI window looks completely different on iPhone vs. Android
+			// iPhone UI
+			if (Ti.Platform.osname=='iphone') {
+				var winTW = Titanium.UI.createWindow({
+					height:((Ti.Platform.displayCaps.platformHeight*0.5)-15), // half because the keyboard takes up half
+					width:(Ti.Platform.displayCaps.platformWidth-20),
+					top:10,
+					right:10,
+					left:10,
+					borderColor:'#224466',
+					borderWidth:3,
+					backgroundColor:'#559abb',
+					borderRadius:10
+				});
+				var tweet = Ti.UI.createTextArea({
+					value:text,
+					height:((Ti.Platform.displayCaps.platformHeight*0.5)-100),
+					width:(Ti.Platform.displayCaps.platformWidth-48),
+					font:{fontSize:16},
+					top:14,
+					left:14,
+					right:14
+				});
+				var btnShorten = Ti.UI.createButton({
+					title:'Shorten',
+					width:80,
+					height:30,
+					top:((Ti.Platform.displayCaps.platformHeight*0.5)-75)
+				});
+				var btnTW = Ti.UI.createButton({
+					title:'Tweet!',
+					width:80,
+					height:30,
+					top:((Ti.Platform.displayCaps.platformHeight*0.5)-75),
+					right:24
+				});
+				var btnCancel = Ti.UI.createButton({
+					title:'Cancel',
+					width:80,
+					height:30,
+					top:((Ti.Platform.displayCaps.platformHeight*0.5)-75),
+					left:24
+				});
+				var charcount = Ti.UI.createLabel({
+					top:((Ti.Platform.displayCaps.platformHeight*0.5)-55),
+					left:(Ti.Platform.displayCaps.platformWidth-60), // 30 px from right side,
+					color:'#FFF',
+					text:(parseInt((140-chars))+'')
+				});
+				// show keyboard on load
+				winTW.addEventListener('open',function(){
+					tweet.focus();
+				});
+			}
+			// Android UI
+			else {
+				var winTW = Titanium.UI.createWindow({
+					height:264,
+					top:10,
+					right:10,
+					left:10,
+					borderColor:'#224466',
+					borderWidth:3,
+					backgroundColor:'#559abb',
+					borderRadius:3.0
+				});
+				var tweet = Ti.UI.createTextArea({
+					value:text,
+					height:160,
+					top:14,
+					left:14,
+					right:14
+				});
+				var btnShorten = Ti.UI.createButton({
+					title:'Shorten',
+					width:100,
+					top:182
+				});
+				var btnTW = Ti.UI.createButton({
+					title:'Tweet',
+					width:100,
+					top:182,
+					right:24
+				});
+				var btnCancel = Ti.UI.createButton({
+					title:'Cancel',
+					width:100,
+					top:182,
+					left:24
+				});
+				var charcount = Ti.UI.createLabel({
+					bottom:10,
+					right:14,
+					color:'#FFF',
+					text:(parseInt((140-chars))+'')
+				});
+			}
+			tweet.addEventListener('change',function(e) {
+				chars = (140-e.value.length);
+				if (chars<11) {
+					if (charcount.color!='#D40D12') {
+						charcount.color = '#D40D12';
+					}
+				} else if (chars<20) {
+					if (charcount.color!='#5C0002') {
+						charcount.color = '#5C0002';
+					}
+				} else {
+					if (charcount.color!='#FFF') {
+						charcount.color = '#FFF';
+					}
+				}
+				charcount.text = parseInt(chars)+'';
+			});
+			btnShorten.addEventListener('click',function() {
+				var actInd = Titanium.UI.createActivityIndicator({
+					style:Titanium.UI.iPhone.ActivityIndicatorStyle.BIG,
+					height:30,
+					width:30,
+					top:30
+				});
+				indWin = Titanium.UI.createWindow();
+				indWin.add(actInd);
+				indWin.open();
+				actInd.show();
+
+				// replace URLs in the text with shortened URLs
+				var urlRegex = /(https?:\/\/[^\s]+)/gi;
+				var urls = [];
+				(tweet.value).replace(urlRegex, function(url) {
+Ti.API.info('push '+url);
+					urls.push(url);
+				});
+				for (var i=0; i<urls.length; i++) {
+					// get shorturl
+					shorten_url(urls[i],function(shorturl,url){
+Ti.API.info('repl: '+shorturl);
+						if (shorturl!=false) {
+Ti.API.info('repl '+url+' with '+shorturl);
+							tweet.value = (tweet.value).replace(url, shorturl);
+							indWin.close();
+							actInd.hide();
+Ti.API.info('tweet is now '+tweet.value);
+							return true;
+						} else {
+							indWin.close();
+							actInd.hide();
+							var alertDialog = Titanium.UI.createAlertDialog({
+								title: 'System Message',
+								message: "Could not shorten the url "+url,
+								buttonNames: ['OK']
+							});
+							alertDialog.show();
+							return false;
+						}
+					});
+				}
+			});
+			btnTW.addEventListener('click',function() {
+				send_tweet("status="+escape(tweet.value),function(retval){
+					if (retval===false) {
+						var alertDialog = Titanium.UI.createAlertDialog({
+							title: 'System Message',
+							buttonNames: ['OK']
+						});
+						alertDialog.message = "Tweet failed to send!";
+
+						// execute the callback function
+						if (typeof(callback)=='function') {
+							Ti.API.info('CALLBACK 1-false');
+							callback(false);
+						}
+
+						return false;
+					} else {
+						// hide the keyboard on Android because it doesn't automatically
+						if (Ti.Platform.osname=='android') {
+							Titanium.UI.Android.hideSoftKeyboard();
+						}
+
+						// execute the callback function
+						if (typeof(callback)=='function') {
+							Ti.API.info('CALLBACK 1-true');
+							callback(true);
+						}
+
+						winBG.close();
+						winTW.close();
+
+						return true;
+					}
+				});
+			});
+			btnCancel.addEventListener('click',function() {
+				// hide the keyboard on Android because it doesn't automatically
+				if (Ti.Platform.osname=='android') {
+					Titanium.UI.Android.hideSoftKeyboard();
+				}
+				winBG.close();
+				winTW.close();
+			});
+			winTW.add(charcount);
+			winTW.add(tweet);
+			winTW.add(btnShorten);
+			winTW.add(btnTW);
+			winTW.add(btnCancel);
+			winBG.open();
+			winTW.open();
+		}
+	}
+
+	// --------------------------------------------------------
 	// send_tweet
 	//
 	// Makes an API call to Twitter to post a tweet.
@@ -790,17 +1063,76 @@ function BirdHouse(params) {
 	// In Parameters:
 	//	params (String) - the string of optional and
 	//	  required parameters in url form
+	//	callback (Function) - function to call on completion
 	// --------------------------------------------------------
-	function send_tweet(params) {
+	function send_tweet(params,callback) {
 		api('http://api.twitter.com/1/statuses/update.json','POST',params,function(resp){
 			if (resp!=false) {
-				Ti.API.debug("fn-send_tweet: response was "+resp);
+				Ti.API.debug("fn-send_tweet: response was "+resp+'--------------');
+				if (typeof(callback)=='function') {
+					callback(true);
+				}
 				return true;
 			} else {
-				Ti.API.info("Failed to send tweet.");
+				Ti.API.info("Failed to send tweet."+'------------------');
+				if (typeof(callback)=='function') {
+					callback(false);
+				}
 				return false;
 			}
 		});
+	}
+
+
+	// --------------------------------------------------------
+	// shorten_url
+	//
+	// Shortens a URL using twe.ly.
+	//
+	// In Parameters:
+	//	url (String) - the url to shorten
+	//
+	// Returns:
+	//	shorturl (String) - the shortened URL, else false
+	//	callback (Function) - function to call on completion
+	// --------------------------------------------------------
+	function shorten_url(url,callback) {
+		Ti.API.info("----- Get Short URL -----");
+
+		Ti.API.info('url: '+url);
+
+		var XHR = Titanium.Network.createHTTPClient();
+Ti.API.info('call: http://www.twe.ly/short.php?url='+url+"&json=1");
+		XHR.open("GET","http://www.twe.ly/short.php?url="+url+"&json=1");
+		XHR.onload = function () {
+Ti.API.info('resp: '+XHR.responseText);
+			try {
+				shorturl = JSON.parse(XHR.responseText);
+			} catch(e) {
+				shorturl = false;
+			}
+
+			if (shorturl!=false && shorturl.substr(0,5)=='Sorry') {
+				shorturl = false;
+			}
+Ti.API.info('shortlink '+shorturl);
+
+			if (typeof(callback)=='function') {
+				callback(shorturl,url);
+			}
+
+			return shorturl;
+		};
+		XHR.onerror = function(e) {
+			Ti.API.debug('XHR error is '+ XHR.readyState +' | '+XHR.status+" "+JSON.stringify(e));
+
+			if (typeof(callback)=='function') {
+				callback(false);
+			}
+
+			return false;
+		};
+		XHR.send();
 	}
 
 	// --------------------------------------------------------
@@ -822,14 +1154,11 @@ function BirdHouse(params) {
 
 		api("https://api.twitter.com/1/statuses/friends_timeline.json","GET",params,function(tweets){
 			try {
+				Ti.API.info('fn-get_tweets: WE GOT TWEETS!');
 				tweets = JSON.parse(tweets);
 			} catch (e) {
 				Ti.API.info('fn-get_tweets: api returned a non-JSON string');
 				tweets = false;
-			}
-
-			if (tweets!=false) {
-				Ti.API.info('fn-get_tweets: WE GOT TWEETS!');
 			}
 
 			// execute the callback function
@@ -864,13 +1193,6 @@ function BirdHouse(params) {
 			get_request_token(callback); // get_request_token or a function it calls will call callback
 
 		} else {
-			var alertDialog = Titanium.UI.createAlertDialog({
-				title: 'Error Message',
-				message: 'You are already authorized!',
-				buttonNames: ['Schweet!']
-			});
-			alertDialog.show();
-
 			// execute the callback function
 			if(typeof(callback)=='function'){
 				callback(authorized);
@@ -938,6 +1260,8 @@ function BirdHouse(params) {
 	this.authorized = function() { return authorized; }
 	this.get_tweets = get_tweets;
 	this.tweet = tweet;
+	this.short_tweet = short_tweet;
+	this.shorten_url = shorten_url;
 
 	// --------------------------------------------------------
 	// =================== INITIALIZE =========================
