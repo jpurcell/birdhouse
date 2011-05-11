@@ -1,5 +1,5 @@
 ==============
-BirdHouse v0.8
+BirdHouse v0.9
 ==============
 
 Installation & Implementation
@@ -31,7 +31,8 @@ var BH = new BirdHouse({
     callback_url: "http://yourappsEXACTcallbackurl.com" // only necessary for overridding
 });
 
-Note that you may have to tweak the path in birdhouse.js depending on where the file is placed.
+Note 1: you may have to tweak the path in birdhouse.js depending on where the file is placed.
+Note 2: you can add the `show_login_toolbar: false` option to turn off the toolbar at the top when the authorization window opens.
 
 4. Authorize or Make an API Call
 --------------------------------
@@ -66,13 +67,13 @@ Note that with most of these functions you can send a callback function. Because
 How BirdHouse Authorizes with Twitter
 =====================================
 
-This script does not use the OOB (Out-Of-Band) method, the one where it gets the pin. It actually does something pretty slick. After getting the request tokens, it opens a WebView that sends the user to the authorization page on Twitter's site, and listens for when the page has redirected to a page with the 'oauth_verifier' in the url, which the page will be the app's callback url (or the callback url override if specified).
+This script does not use the OOB (Out-Of-Band) method, the one where it gets the pin. It actually does something pretty slick. After getting the request tokens, it opens a WebView that sends the user to the authorization page on Twitter's site, and listens for when the page has redirected to a page with the 'oauth_verifier' in the url, which the page will be the app's callback url (or the callback url override if specified). If the tokens aren't found after 1 second it closes.
 
 Note 1: As a quick note here, if the app's callback url immediately redirects to another page, the listener won't pick up that the url has changed until it finally hits the resultant page, and the 'oauth_verifier' token will be lost. So make sure whatever page the callback goes to does not have redirects set.
 
-Note 2: A few if statements had to be made on the event that someone clicks "denY" or "sign up for an account". In both cases, the window immediately closes. It would be very expensive in terms of time to figure out what URL's are used when making an account and upon success redirect back to the allow screen, so this option is killed.
+Note 2: This method is quite tempermental, but it works, and the alternatives are more difficult to work with.
 
-So, once the redirected to the callback url it extracts the oauth_verifier variable from the url and stores it. Then, that token, combined with the request token, is exchanged for access tokens which are then stored and can be re-used over and over. Finally, if we are authorized and a callback function is set then call it. So, the general process looks like:
+Here is the general process:
 
 1. Get the Request Token
 
@@ -82,16 +83,14 @@ So, once the redirected to the callback url it extracts the oauth_verifier varia
 2. Get the Request Verifier
 
     a. Open up a webview to Twitter's site with the request token
-    b. If 'account' or 'suspended' are in the URL, the user has
-       clicked 'sign up', so kill the process
-    c. Else if 'Redirect' is not in the HTML title of the page,
-       we know the user has clicked 'deny', so kill the process
-    d. Else, we know the user clicked 'allow', so begin listening
-       for the keys in the URL
-    e. When webview has redirected to the Twitter app's callback,
-       grab the request verifier from the URL
-    f. Store the verifier in cfg
-    g. Close the webview
+    b. Skip the first load event because we are loading the initial page
+    c. On the second load, set a timeout so that if it doesn't fire a third
+       time we know the user has not clicked 'allow'.
+    d. On the third load event, we know the user has clicked 'allow' and
+       Twitter has redirected to the callback url, so kill the timeout
+       and fetch the tokens in the URL
+    e. Store the verifier in cfg
+    f. Close the webview
 
 3. Get the Access Token
 

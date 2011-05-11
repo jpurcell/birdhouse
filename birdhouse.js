@@ -19,7 +19,7 @@
 // limitations under the License.
 //
 // Author: Joseph D. Purcell, iEntry Inc
-// Version: 0.8
+// Version: 0.9
 // Modified: May 2011
 // --------------------------------------------------------
 
@@ -45,6 +45,7 @@ function BirdHouse(params) {
 		// user config
 		oauth_consumer_key: "",
 		consumer_secret: "",
+		show_login_toolbar: false,
 		// system config
 		oauth_version: "1.0",
 		oauth_token: "",
@@ -136,128 +137,140 @@ function BirdHouse(params) {
 	// --------------------------------------------------------
 	function get_request_verifier(callback) {
 		var url = "http://api.twitter.com/oauth/authorize?oauth_token="+cfg.request_token;
-		var webView = Ti.UI.createWebView({
-			url: url,
-			scalesPageToFit: true,
-			touchEnabled: true,
-			top:0,
-			backgroundColor: '#FFF'
-		});
-		var request_token = "";
-		var url_base = "";
-		var params = "";
-		var compareUrl = ""; // used for iOS
 		var win = Ti.UI.createWindow({
 			top: 0,
 			modal: true,
 			fullscreen: true
 		});
-		var init = true;
-		var allow = false;
-		var title = '';
+		// add close button on iPhone
+		if (Ti.Platform.osname=='iphone' && cfg.show_login_toolbar) {
+			var webView = Ti.UI.createWebView({
+				url: url,
+				scalesPageToFit: true,
+				touchEnabled: true,
+				top:43,
+				backgroundColor: '#FFF'
+			});
+			var toolbar = Ti.UI.createToolbar({top:0});
+			var toolbarLabel = Ti.UI.createLabel({
+				text:'Login with Twitter',
+				font:{fontSize:16,fontWeight:'bold'},
+				color:'#FFF',
+				textAlign:'center'
+			});
+			var flexSpace = Titanium.UI.createButton({
+				systemButton:Titanium.UI.iPhone.SystemButton.FLEXIBLE_SPACE
+			});
+			var btnClose = Titanium.UI.createButton({
+				title:'Cancel',
+				style:Titanium.UI.iPhone.SystemButtonStyle.BORDERED
+			});
+			toolbar.items = [flexSpace,flexSpace,toolbarLabel,flexSpace,btnClose];
+			win.add(toolbar);
+
+			// close login window
+			btnClose.addEventListener('click',function(){
+				webView.stopLoading();
+				win.remove(webView);
+				win.close();
+			});
+		} else {
+			var webView = Ti.UI.createWebView({
+				url: url,
+				scalesPageToFit: true,
+				touchEnabled: true,
+				top:0,
+				backgroundColor: '#FFF'
+			});
+		}
+		var request_token = "";
+		var url_base = "";
+		var params = "";
+		var loading = false; // since the 'loading' property on webView is broke, use this
+		var loads = 0; // number of times webView has loaded a URl
+		var doinOurThing = false; // whether or not we are checking for oauth tokens
 
 		// add the webview to the window and open the window
 		win.add(webView);
 		win.open();
 
+
+		// since there is no difference between the 'success' or 'denied' page apart from content,
+		// we need to wait and see if Twitter redirects to the callback to determine success
+		function checkStatus() {
+			if (!doinOurThing) {
+				// access denied or something else was clicked
+				if (!loading) {
+					webView.stopLoading();
+					win.remove(webView);
+					win.close();
+
+					if(typeof(callback)=='function'){
+						callback(false);
+					}
+
+					return false;
+				}
+			} else {
+			}
+		}
+
+		webView.addEventListener('beforeload',function(){
+			loading = true;
+		});
 		webView.addEventListener('load',function(e){
-			title = webView.evalJS("document.title");
+			loads++;
 
-			// the first time load, ignore
-			if (init) {
-				init = false
-			}
-			// the second load they have clicked allow or deny
-			else {
-				// listen for the tokenses if "allow" was clicked
-				if (allow) {
+			// the first time load, ignore, because it is the initial 'allow' page
 
-					// success!
-					params = "";
-					var parts = (e.url).replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
-						params = params + m;
+			// set timeout to check for something other than 'allow', if 'allow' was clicked
+			// then loads==3 will cancel this
+			if (loads==2) {
+				// something else was clicked
+				if (e.url!='https://api.twitter.com/oauth/authorize') {
+					webView.stopLoading();
+					win.remove(webView);
+					win.close();
 
-						if (key=='oauth_verifier') {
-							cfg.request_verifier = value;
-						}
-					});
-
-					if (cfg.request_verifier!="") {
-
-						// my attempt at making sure the stupid webview dies
-						webView.stopLoading();
-						win.remove(webView);
-						win.close();
-
-						get_access_token(callback);
-
-						return true; // we are done here
+					if(typeof(callback)=='function'){
+						callback(false);
 					}
+
+					return false;
 				}
-				// find out what the user is clicking on
+				// wait a bit to see if Twitter will redirect
 				else {
-
-					// user is creating a new account (goes to a suspended page if clicked second time)
-					// just kill the auth process and say "go do this somewhere else"
-					if ((e.url).search('account')!=-1 || (e.url).search('suspended')!=-1) {
-
-						webView.stopLoading();
-						win.remove(webView);
-						win.close();
-
-						if(typeof(callback)=='function'){
-							callback(false);
-						}
-
-						return false;
-					}
-					// access denied was clicked
-					//else if ((webView.evalJS("document.title")).search('Redirect')==-1) {
-					else if (title=='Twitter') {
-
-						webView.stopLoading();
-						win.remove(webView);
-						win.close();
-
-						if(typeof(callback)=='function'){
-							callback(false);
-						}
-
-						return false;
-					}
-					// allow access was clicked
-					else {
-						// note that we can skip the current page, because the page
-						// is a page on Twitter with a javscript (or PHP) redirect
-						// when webView load fires again, allow will be true
-						// and we will extract the tokenses
-						allow = true;
-
-
-						// go ahead and check this page for the tokens
-						params = "";
-						var parts = (e.url).replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
-							params = params + m;
-
-							if (key=='oauth_verifier') {
-								cfg.request_verifier = value;
-							}
-						});
-
-						if (cfg.request_verifier!="") {
-
-							// my attempt at making sure the stupid webview dies
-							webView.stopLoading();
-							win.remove(webView);
-							win.close();
-
-							get_access_token(callback);
-
-							return true; // we are done here
-						}
-					}
+					setTimeout(checkStatus,1000);
 				}
 			}
+			// Twitter has redirected the page to our callback URL (most likely)
+			else if (loads==3) {
+				doinOurThing = true; // kill the timeout b/c we are doin our thing
+
+				// success!
+				params = "";
+				var parts = (e.url).replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+					params = params + m;
+
+					if (key=='oauth_verifier') {
+						cfg.request_verifier = value;
+					}
+				});
+
+				if (cfg.request_verifier!="") {
+					// my attempt at making sure the stupid webview dies
+					webView.stopLoading();
+					win.remove(webView);
+					win.close();
+
+					get_access_token(callback);
+
+					return true; // we are done here
+				}
+			}
+
+			// we are done loading the page
+			loading = false;
 		});
 
 	}
@@ -658,12 +671,6 @@ function BirdHouse(params) {
 			btnTW.addEventListener('click',function() {
 				send_tweet("status="+escape(tweet.value),function(retval){
 					if (retval===false) {
-						var alertDialog = Titanium.UI.createAlertDialog({
-							title: 'System Message',
-							buttonNames: ['OK']
-						});
-						alertDialog.message = "Tweet failed to send!";
-
 						// execute the callback function
 						if (typeof(callback)=='function') {
 							callback(false);
@@ -899,12 +906,6 @@ function BirdHouse(params) {
 						} else {
 							indWin.close();
 							actInd.hide();
-							var alertDialog = Titanium.UI.createAlertDialog({
-								title: 'System Message',
-								message: "Could not shorten the url "+url,
-								buttonNames: ['OK']
-							});
-							alertDialog.show();
 							return false;
 						}
 					});
@@ -913,12 +914,6 @@ function BirdHouse(params) {
 			btnTW.addEventListener('click',function() {
 				send_tweet("status="+escape(tweet.value),function(retval){
 					if (retval===false) {
-						var alertDialog = Titanium.UI.createAlertDialog({
-							title: 'System Message',
-							buttonNames: ['OK']
-						});
-						alertDialog.message = "Tweet failed to send!";
-
 						// execute the callback function
 						if (typeof(callback)=='function') {
 							callback(false);
@@ -1126,13 +1121,6 @@ function BirdHouse(params) {
 				callback(!authorized);
 			}
 		} else {
-			var alertDialog = Titanium.UI.createAlertDialog({
-				title: 'Error Message',
-				message: 'You are already deauthorized!',
-				buttonNames: ['Oh, OK']
-			});
-			alertDialog.show();
-
 			// execute the callback function
 			if(typeof(callback)=='function'){
 				callback(!authorized);
@@ -1167,6 +1155,9 @@ function BirdHouse(params) {
 		}
 		if (params.callback_url != undefined) {
 			cfg.callback_url = params.callback_url;
+		}
+		if (params.show_login_toolbar != undefined) {
+			cfg.show_login_toolbar = params.show_login_toolbar;
 		}
 	}
 	authorized = load_access_token(); // load the token on startup to see if authorized
