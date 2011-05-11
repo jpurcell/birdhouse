@@ -454,7 +454,6 @@ function BirdHouse(params) {
 				params = params + "oauth_token="+cfg.access_token;
 			}
 			var message = set_message(url, method, params);
-			//var message = createMessage(url, method, params);
 
 			OAuth.SignatureMethod.sign(message, accessor);
 
@@ -477,7 +476,6 @@ function BirdHouse(params) {
 				// execute the callback function
 				if (typeof(callback)=='function') {
 					callback(XHR.responseText);
-				} else {
 				}
 
 				return XHR.responseText;
@@ -485,10 +483,9 @@ function BirdHouse(params) {
 
 			// on error, show message
 			XHR.onerror = function(e) {
-				// access token and token secret are wrong
-				if (e.error=="Unauthorized") {
-
-				} else {
+				// execute the callback function
+				if (typeof(callback)=='function') {
+					callback(false);
 				}
 
 				return false;
