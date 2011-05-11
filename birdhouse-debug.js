@@ -256,7 +256,7 @@ function BirdHouse(params) {
 
 			// set timeout to check for something other than 'allow', if 'allow' was clicked
 			// then loads==3 will cancel this
-			else if (loads==2) {
+			if (loads==2) {
 				Ti.API.info('============== loads 2 ==============');
 				// something else was clicked
 				if (e.url!='https://api.twitter.com/oauth/authorize') {
@@ -551,6 +551,10 @@ function BirdHouse(params) {
 
 				} else {
 					Ti.API.debug('The API XHR request has failed! Status='+XHR.readyState+' and var_dump of e is '+var_dump(e));
+				}
+
+				if (typeof(callback)=='function') {
+					callback(false);
 				}
 
 				return false;
